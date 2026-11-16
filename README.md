@@ -22,3 +22,7 @@ The build rejects the word list unless it has exactly 256 unique words of at mos
 ## Limits
 
 The protocol does not stop a live relay between two real people, a lost or photographed card, or coercion. See §4 of the spec.
+
+## License
+
+MIT, covering the spec, the word list and the code. Build on it.
