@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="KinCheck: a paper protocol for checking who is really on the phone. One-time word tables, one per pair of people, that a cloned voice can't pass.">
+<title>KinCheck Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+html,body{margin:0}
+/* Layout: a single reading column like an RFC, with a margin index on wide screens and the specimen card as the one visual object. */
+:root{
+  --paper:#f7f8fa; --sheet:#ffffff; --ink:#14181f; --muted:#576070; --rule:#d5dae3;
+  --accent:#1f4fd1; --accent-soft:#e6ecfb; --warn:#a1340f; --ok:#17663a;
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0f1217; --sheet:#171b22; --ink:#e8ecf2; --muted:#9aa4b4; --rule:#2c333e;
+    --accent:#8aa9ff; --accent-soft:#1c2740; --warn:#ff9a70; --ok:#6fd99a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0f1217; --sheet:#171b22; --ink:#e8ecf2; --muted:#9aa4b4; --rule:#2c333e;
+  --accent:#8aa9ff; --accent-soft:#1c2740; --warn:#ff9a70; --ok:#6fd99a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:16.5px/1.62 var(--sans);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page{max-width:1080px;margin:0 auto;padding-block:40px 96px;display:grid;grid-template-columns:1fr;gap:40px}
+@media(min-width:980px){.page{grid-template-columns:200px minmax(0,1fr)}}
+nav.toc{font:14px/1.5 var(--sans);color:var(--muted)}
+@media(min-width:980px){nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start}}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+nav.toc a{color:inherit;text-decoration:none}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent)}
+nav.toc .num{font-family:var(--mono);font-size:12px;display:inline-block;width:2.2em;color:var(--muted)}
+main{min-width:0;max-width:720px}
+.status{font:600 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:14px}
+.status b{color:var(--accent)}
+h1{font:700 clamp(34px,6vw,52px)/1.02 var(--cond);letter-spacing:-.01em;margin:0 0 18px;text-wrap:balance}
+h2{font:700 25px/1.2 var(--cond);margin:56px 0 12px;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+h2 .num{font:600 14px/1 var(--mono);color:var(--accent)}
+h3{font:600 17px/1.3 var(--sans);margin:26px 0 6px}
+p,li{max-width:68ch}
+.abstract{font-size:19px;line-height:1.55;border-left:3px solid var(--accent);padding:2px 0 2px 18px;margin:0 0 8px}
+code,.mono{font-family:var(--mono);font-size:.92em}
+.must{font:600 .82em/1 var(--mono);letter-spacing:.04em;color:var(--accent)}
+.say{font-family:var(--mono);background:var(--accent-soft);padding:1px 6px;border-radius:4px;white-space:nowrap}
+ol.rules,ul.rules{padding-left:22px;display:grid;gap:6px}
+.exchange{border:1px solid var(--rule);background:var(--sheet);border-radius:8px;padding:14px 16px;font:15px/1.7 var(--mono);overflow-x:auto}
+.exchange div{white-space:nowrap}
+.exchange .who{display:inline-block;width:5.5em;color:var(--muted)}
+.exchange .act{color:var(--muted);font-style:italic}
+.scroll{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font:600 12px/1.3 var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--paper)}
+.pill{font:600 11.5px/1 var(--mono);letter-spacing:.04em;text-transform:uppercase;padding:4px 7px;border-radius:99px;white-space:nowrap;display:inline-block}
+.pill.ok{color:var(--ok);border:1px solid currentColor}
+.pill.no{color:var(--warn);border:1px solid currentColor}
+
+/* Specimen: always rendered as paper, in both themes */
+.specimen-wrap{margin:22px 0 8px;overflow-x:auto;padding:6px 2px 14px}
+.specimen{background:#fff;color:#111;min-width:560px;max-width:680px;border-radius:3px;padding:22px 24px 18px;
+  box-shadow:0 1px 0 rgba(0,0,0,.06),0 10px 30px -12px rgba(10,20,40,.35);font-family:var(--sans);position:relative}
+.specimen::after{content:"EXAMPLE · DO NOT USE";position:absolute;top:18px;right:22px;font:600 10.5px/1 var(--mono);letter-spacing:.1em;color:#a1340f;border:1.5px solid #a1340f;padding:4px 6px;transform:rotate(3deg)}
+.sp-head{border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:10px}
+.sp-title{font:700 24px/1.1 var(--cond)}
+.sp-sub{font-size:12px;color:#444;margin-top:3px}
+.sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.sp-grid table{font-size:14px}
+.sp-grid th{background:#fff;color:#444;border-bottom:1.5px solid #111;padding:4px 6px}
+.sp-grid td{padding:5px 6px;border-bottom:1px solid #ccc;white-space:nowrap}
+.sp-grid tr:nth-child(even) td{background:#f3f3f3}
+.sp-grid td.n{font-weight:700;text-align:right;width:2.2em;font-family:var(--mono)}
+.sp-grid td.a{font-weight:700}
+.sp-grid tr.used td{text-decoration:line-through;color:#888}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:4px}
+button{font:600 14.5px/1 var(--sans);padding:10px 14px;border-radius:7px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.hint{font-size:14px;color:var(--muted)}
+
+.words{columns:4 9.5em;column-gap:18px;font:14px/1.75 var(--mono);border:1px solid var(--rule);border-radius:8px;background:var(--sheet);padding:12px 16px}
+.words span{display:block;break-inside:avoid}
+.words i{font-style:normal;color:var(--muted);display:inline-block;width:2.6em}
+.copyrow{display:flex;gap:10px;align-items:center;margin:10px 0 0}
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--muted)}
+a{color:var(--accent)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<div class="page">
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#overview"><span class="num">1</span>Overview</a></li>
+    <li><a href="#tables"><span class="num">2</span>The table</a></li>
+    <li><a href="#exchange"><span class="num">3</span>The check</a></li>
+    <li><a href="#threats"><span class="num">4</span>Threat model</a></li>
+    <li><a href="#uses"><span class="num">5</span>Uses</a></li>
+    <li><a href="#words"><span class="num">6</span>Word list v1</a></li>
+    <li><a href="#prior"><span class="num">7</span>Prior art</a></li>
+    <li><a href="#impl"><span class="num">8</span>Implementations</a></li>
+  </ol>
+</nav>
+
+<main>
+<div class="status"><span>Specification</span><span>Version <b>1.0</b></span><span>Draft · 16 Nov 2026</span></div>
+<h1>KinCheck Protocol</h1>
+<p class="abstract">Two people who have met in person each hold the same printed table of one-time word lines. To check who they're talking to over any voice or text channel, one reads a line number and its ask word, the other replies with that line's two answer words, and both cross the line out.</p>
+<p>The protocol needs no device, account, network or operator. A cloned voice or face does not help an attacker, because the check is about what each person holds, not how they sound. This document defines the table, the exchange and the rules that make it hold up against an attacker who can call everyone involved.</p>
+<p><a href="cards.html"><b>Make your own cards →</b></a></p>
+<p class="hint">The keywords <span class="must">MUST</span>, <span class="must">MUST NOT</span>, <span class="must">SHOULD</span> and <span class="must">MAY</span> are used as in RFC 2119.</p>
+
+<h2 id="overview"><span class="num">1</span>Overview</h2>
+<p>A <b>pair</b> is two people, A and B. A pair has exactly one <b>table</b>, printed twice: A's copy and B's copy. A person in several pairs holds one table per pair. Grandma, Alex and Sam need three tables, which is six printed pages.</p>
+<p>Each table has numbered <b>lines</b>. A line has one <b>ask word</b> and two <b>answer words</b>. Every line is used at most once, whether the check succeeds or fails.</p>
+
+<div class="specimen-wrap" aria-label="Example table">
+  <div class="specimen" id="specimen"></div>
+</div>
+<div class="controls">
+  <button id="regen" type="button">Generate another example</button>
+  <button id="use" type="button">Use the next line</button>
+  <span class="hint" id="spec-status" role="status" aria-live="polite">Generated in your browser from <code>crypto.getRandomValues</code>. Nothing is sent or stored.</span>
+</div>
+
+<h2 id="tables"><span class="num">2</span>The table</h2>
+<ol class="rules">
+  <li>A table <span class="must">MUST</span> belong to exactly one pair, and <span class="must">MUST</span> exist in exactly two copies. No line may appear on any other table. This is the rule that defeats the cross-relative attack in §4.</li>
+  <li>Each word <span class="must">MUST</span> be drawn uniformly at random from the v1 word list (§6) with a cryptographically secure generator. Words <span class="must">MUST NOT</span> repeat within a table (draw without replacement).</li>
+  <li>A table <span class="must">SHOULD</span> have 30 lines and <span class="must">MUST</span> have at least 10. When fewer than 5 lines remain, the pair <span class="must">SHOULD</span> make a new table.</li>
+  <li>Each copy <span class="must">MUST</span> print both names (holder and partner), so the right table is picked up quickly under pressure. It <span class="must">SHOULD</span> print a set identifier and the date it was made, and the rules in §3 in plain language.</li>
+  <li>A table <span class="must">SHOULD</span> exist only on paper. A generator <span class="must">MUST NOT</span> transmit or store the table. Copies <span class="must">SHOULD</span> be handed over in person.</li>
+</ol>
+
+<h2 id="exchange"><span class="num">3</span>The check</h2>
+<p>The person being asked for something (money, a code, access, an urgent favour) is the <b>asker</b>. The other person is the <b>answerer</b>.</p>
+<div class="exchange" aria-label="Example exchange">
+  <div><span class="who">Asker</span>"Card check: line 4, <b>pancake</b>."</div>
+  <div><span class="who">Answerer</span><span class="act">finds line 4, sees the ask word matches</span></div>
+  <div><span class="who">Answerer</span>"<b>Glacier, harbor</b>."</div>
+  <div><span class="who">Both</span><span class="act">cross out line 4</span></div>
+</div>
+<h3>Asker</h3>
+<ol class="rules">
+  <li><span class="must">MUST</span> use their lowest-numbered line that isn't crossed out, and <span class="must">MUST</span> say the ask word with the line number.</li>
+  <li><span class="must">MUST</span> treat a wrong answer, a stall or "I lost my card" as a failed check: end the call and reach the person on a contact already known to the asker.</li>
+  <li><span class="must">MUST</span> cross the line out after any attempt, including a failed one.</li>
+  <li>If the answerer says the line is already crossed out on their copy, the asker <span class="must">MUST</span> cross it out too and use their next line.</li>
+</ol>
+<h3>Answerer</h3>
+<ol class="rules">
+  <li><span class="must">MUST NOT</span> read any word from the table unless the asker first gave the correct ask word for a line that isn't crossed out on the answerer's copy.</li>
+  <li><span class="must">MUST</span> cross that line out after answering.</li>
+  <li>A correct ask word does not prove who the asker is (§4, cross-pair leak). If the asker then asks the answerer for something, the answerer <span class="must">MUST</span> run their own check on their next line.</li>
+</ol>
+<p>The check <span class="must">MAY</span> run over text messages in the same form. It <span class="must">SHOULD NOT</span> run over a channel that both parties' copies could be photographed into, such as a shared cloud photo album.</p>
+
+<h2 id="threats"><span class="num">4</span>Threat model</h2>
+<p>The attacker can reproduce any participant's voice and face, call or message anyone at any time, spoof caller ID, and record every check. The attacker cannot see the paper copies. The analysis uses three people (A, B, C) because the important attack only appears with three.</p>
+<div class="scroll">
+<table>
+  <thead><tr><th style="width:34%">Attack</th><th style="width:16%">Result</th><th>Why</th></tr></thead>
+  <tbody>
+  <tr><td>Impersonate B to A and guess the answer</td><td><span class="pill ok">Stopped</span></td><td>Two answer words from 256 without replacement: about 1 in 65,000 per attempt, and each attempt burns a line and ends the call.</td></tr>
+  <tr><td>Replay answers recorded from an earlier check</td><td><span class="pill ok">Stopped</span></td><td>A line is never used twice. A recorded line is already crossed out on both copies.</td></tr>
+  <tr><td>Impersonate A to B: "read me line 4"</td><td><span class="pill ok">Stopped</span></td><td>The answerer requires the ask word first. Guessing it is a 1 in 256 chance, and a wrong guess is itself an alarm.</td></tr>
+  <tr><td>Harvest: impersonate B to A to learn an ask word, then use it on B to learn the answer, then call A again</td><td><span class="pill ok">Stopped</span></td><td>A always moves to a fresh line. The harvested answer belongs to a line A has already crossed out.</td></tr>
+  <tr><td>Cross-pair leak: learn an ask word from A, use it on B to get an answer, use that answer on C</td><td><span class="pill ok">Stopped</span></td><td>Only possible if tables are shared by more than two people. §2 rule 1 forbids that. (The first draft of this protocol used one family-wide table and failed this attack.)</td></tr>
+  <tr><td>Predict which line will be asked</td><td><span class="pill ok">Stopped</span></td><td>The line order is public and doesn't matter: every line's words are independent and random.</td></tr>
+  <tr><td>Live relay: call A as B and B as A at the same time and pass words between them</td><td><span class="pill no">Not stopped</span></td><td>Paper can't detect a relay. Mitigation: after a pass, for anything large, call back on a known contact anyway.</td></tr>
+  <tr><td>Card lost, stolen or photographed</td><td><span class="pill no">Not stopped</span></td><td>Whoever holds a copy can pass. Replace every table the card covered. A photo on a cloud-synced phone counts as a copy.</td></tr>
+  <tr><td>Coercion: someone with the real person forces them to answer</td><td><span class="pill no">Not stopped</span></td><td>Outside the model. Families MAY agree a separate duress word.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h2 id="uses"><span class="num">5</span>Uses</h2>
+<p>The same table and exchange, with different pairs:</p>
+<ul class="rules">
+  <li><b>Family emergency calls.</b> The cloned-voice "grandchild in trouble" call. The person most often targeted needs only paper.</li>
+  <li><b>Payment-detail changes between businesses.</b> A supplier's accounts contact and a customer's accounts contact hold a table. "We've changed our bank details" requires a check before any payment moves.</li>
+  <li><b>Help desks.</b> An employee and their manager or IT contact hold a table, so a password reset or MFA re-enrolment requested by phone can be checked.</li>
+  <li><b>Newsrooms and sources.</b> A reporter and a source meet once, exchange a table, and can confirm each other later on any channel without either holding a key on a device.</li>
+</ul>
+
+<h2 id="words"><span class="num">6</span>Word list v1</h2>
+<p>256 words, so each word is exactly one random byte. Selection rules: concrete nouns a child would know; at most 9 letters; no homophones; no rhyming pairs that are easy to mishear on a phone line (removed: bagel/bugle, rocket/pocket/locket, carrot/parrot, lizard/wizard and others). Groups that share a four-letter ending were reviewed by ear one at a time. The list's order is the canonical index for implementations.</p>
+<div class="words" id="wordlist" aria-label="Word list"></div>
+<div class="copyrow"><button id="copy" type="button">Copy list as text</button><span class="hint" id="copy-status" role="status" aria-live="polite"></span></div>
+
+<h2 id="prior"><span class="num">7</span>Prior art</h2>
+<p>None of the parts are new. Military radio operators have authenticated voice traffic with printed challenge-and-reply tables (DRYAD, KTC 1400) for decades. Banks posted numbered one-time code lists (TAN and iTAN). S/KEY and OTPW printed one-time password lists for computer logins. Families are told to agree a safe word, and printable safe-word cards exist. Several apps (TrustWord, Trust Onion, Family Code Word and others) rotate codes between paired phones.</p>
+<p>What this protocol adds is the combination: a table on paper only, one table per pair of people, one use per line, and an ask word so that the person asking has to show they hold a copy too, with the rules written so both sides can follow them without a device. We found no earlier description of this combination after a dozen searches, but that is not proof that none exists.</p>
+
+<h2 id="impl"><span class="num">8</span>Implementations</h2>
+<p><a href="cards.html"><b>Make and print your own cards</b></a>. This is the reference generator: one HTML file that runs in any browser, makes no network requests (enforced by Content-Security-Policy), stores nothing, and prints one page per person per pair at Letter or A4. You can also save the page and use it offline. Source: <a href="https://github.com/klabianco/kincheck">github.com/klabianco/kincheck</a>.</p>
+<p>An implementation conforms to v1 if it follows every <span class="must">MUST</span> in §2 and prints the §3 rules on each copy.</p>
+
+<footer>KinCheck Protocol v1.0, draft of 16 November 2026. Changes since the first draft: tables became one per pair instead of one per family (§4, cross-pair leak); 15 rhyming words were replaced (§6).</footer>
+</main>
+</div>
+
+<script>
+"use strict";
+const WORDS = __WORDS__;
+const $ = id => document.getElementById(id);
+function randInt(n){ const b = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n; for(;;){ crypto.getRandomValues(b); if (b[0] < lim) return b[0] % n; } }
+function shuffled(a){ a = a.slice(); for (let i = a.length - 1; i > 0; i--){ const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const cap = s => s[0].toUpperCase() + s.slice(1);
+function el(t, cls, txt){ const e = document.createElement(t); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+let used = 0;
+const SHOW = 12;
+function renderSpecimen(){
+  used = 0;
+  const w = shuffled(WORDS);
+  const box = $("specimen"); box.replaceChildren();
+  const head = el("div", "sp-head");
+  head.append(el("div", "sp-title", "Grandma ↔ Alex"), el("div", "sp-sub", "Grandma's copy · only for calls with Alex · first 12 of 30 lines"));
+  const grid = el("div", "sp-grid");
+  for (let h = 0; h < 2; h++){
+    const t = el("table"), th = el("thead"), tr = el("tr");
+    ["#", "Ask", "Answer"].forEach(x => tr.append(el("th", null, x))); th.append(tr); t.append(th);
+    const tb = el("tbody");
+    for (let i = h * SHOW / 2; i < (h + 1) * SHOW / 2; i++){
+      const r = el("tr"); r.dataset.line = i;
+      r.append(el("td", "n", String(i + 1)), el("td", "a", cap(w[3*i])), el("td", null, cap(w[3*i+1]) + " · " + cap(w[3*i+2])));
+      tb.append(r);
+    }
+    t.append(tb); grid.append(t);
+  }
+  box.append(head, grid);
+  $("spec-status").textContent = "Generated in your browser from crypto.getRandomValues. Nothing is sent or stored.";
+}
+$("regen").addEventListener("click", renderSpecimen);
+$("use").addEventListener("click", () => {
+  if (used >= SHOW){ $("spec-status").textContent = "All example lines used. Make a new table."; return; }
+  const row = document.querySelector('#specimen tr[data-line="' + used + '"]');
+  row.classList.add("used");
+  const cells = row.querySelectorAll("td");
+  $("spec-status").textContent = "Asker says “line " + (used + 1) + ", " + cells[1].textContent.toLowerCase() + ".” Answerer replies “" + cells[2].textContent.replace(" · ", ", ").toLowerCase() + ".” Both cross it out.";
+  used++;
+});
+
+const list = $("wordlist");
+WORDS.forEach((w, i) => { const s = el("span"); const n = el("i", null, String(i).padStart(3, "0")); s.append(n, w); list.append(s); });
+$("copy").addEventListener("click", () => {
+  const text = WORDS.join("\n");
+  navigator.clipboard.writeText(text).then(
+    () => $("copy-status").textContent = "Copied 256 words, one per line.",
+    () => { const r = document.createRange(); r.selectNodeContents(list); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("copy-status").textContent = "Copying was blocked here. The list is selected; press Ctrl+C or Cmd+C."; });
+});
+renderSpecimen();
+</script>
+</body>
+</html>

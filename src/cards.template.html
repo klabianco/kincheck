@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="description" content="Make and print KinCheck cards: one-time word tables, one per pair of family members, that a cloned voice can't pass.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- No network access of any kind: nothing on this page can leave your computer. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>KinCheck</title>
+<style>
+:root{
+  --bg:#f6f1e7; --surface:#fffdf8; --ink:#1d1b17; --muted:#5f5a50; --line:#d9d0bf;
+  --accent:#9a3412; --accent-ink:#fff; --soft:#fbe9dc; --ok:#166534;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15130f; --surface:#1f1c17; --ink:#f2ece1; --muted:#b3aa9a; --line:#3a352c;
+    --accent:#f08a4b; --accent-ink:#1a0d04; --soft:#2d2017; --ok:#6ee7a0;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15130f; --surface:#1f1c17; --ink:#f2ece1; --muted:#b3aa9a; --line:#3a352c;
+  --accent:#f08a4b; --accent-ink:#1a0d04; --soft:#2d2017; --ok:#6ee7a0;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:17px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:900px;margin:0 auto;padding:40px 16px 80px}
+h1{font:700 44px/1.05 ui-serif,Georgia,"Times New Roman",serif;letter-spacing:-.02em;margin:0 0 12px}
+h2{font:700 24px/1.2 ui-serif,Georgia,serif;margin:40px 0 10px}
+.lede{font-size:20px;color:var(--muted);max-width:640px;margin:0 0 28px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+label{font-weight:600;display:block;margin:0 0 6px}
+.hint{color:var(--muted);font-size:15px;margin:4px 0 0}
+input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+textarea{min-height:120px;resize:vertical}
+.row{display:grid;gap:18px;grid-template-columns:1fr}
+@media(min-width:680px){.row{grid-template-columns:1fr 1fr}}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+button{font-family:inherit;font-size:17px;font-weight:600;line-height:1;border-radius:10px;padding:13px 18px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.steps{display:grid;gap:12px;grid-template-columns:1fr;counter-reset:s;padding:0;margin:0;list-style:none}
+@media(min-width:680px){.steps{grid-template-columns:repeat(3,1fr)}}
+.steps li{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;counter-increment:s}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:700;margin-bottom:8px}
+.say{font-family:ui-serif,Georgia,serif;font-style:italic}
+.note{background:var(--soft);border-radius:12px;padding:14px 16px;margin-top:16px;font-size:15.5px}
+.status{margin-top:14px;font-weight:600;color:var(--ok);min-height:1.5em}
+table.threats{width:100%;border-collapse:collapse;font-size:15.5px}
+table.threats th,table.threats td{text-align:left;vertical-align:top;padding:10px 8px;border-top:1px solid var(--line)}
+table.threats th{width:36%}
+.tag{font-size:13px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.tag.y{background:var(--soft);color:var(--ok)}
+.tag.n{background:var(--soft);color:var(--accent)}
+
+/* ---------- The printable card ---------- */
+#cards{margin-top:28px;display:grid;gap:28px;overflow-x:auto;padding:4px 2px 14px}
+.card{background:#fff;color:#111;width:198mm;max-width:none;margin:0 auto;padding:7mm 8mm;border-radius:6px;box-shadow:0 2px 14px rgba(0,0,0,.18);font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+.card-head{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;border-bottom:2.5px solid #111;padding-bottom:2.5mm}
+.card-title{font:800 19pt/1.1 Georgia,"Times New Roman",serif;letter-spacing:-.01em}
+.card-title small{display:block;font:600 10pt/1.3 ui-sans-serif,system-ui,Arial,sans-serif;margin-top:1.5mm;color:#333}
+.card-meta{text-align:right;font-size:10pt;line-height:1.35;color:#333}
+.card-meta b{font-size:13pt;color:#111}
+.how{display:grid;grid-template-columns:1.25fr 1fr;gap:4mm;margin:3mm 0 3mm;font-size:10.5pt;line-height:1.38}
+.how ol{margin:0;padding-left:5mm}
+.how li{margin-bottom:1mm}
+.how .q{font-family:Georgia,serif;font-weight:700}
+.how .stop{border:2px solid #111;border-radius:2mm;padding:2mm 3mm}
+.how .stop b{display:block;font-size:11pt;margin-bottom:.5mm}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 4mm}
+.grid table{width:100%;border-collapse:collapse;table-layout:fixed}
+.grid th{font-size:8.5pt;text-transform:uppercase;letter-spacing:.06em;text-align:left;color:#333;padding:0 1.5mm 1mm;border-bottom:1.5px solid #111}
+.grid td{font-size:12.5pt;padding:0 1.2mm;height:10mm;border-bottom:1px solid #bbb;white-space:nowrap;overflow:hidden}
+.grid tr:nth-child(even) td{background:#f1f1f1}
+.grid td.n{font-weight:800;text-align:right;padding-right:1.5mm}
+.grid td.ask{font-weight:700}
+.grid col.c-n{width:8.5mm}.grid col.c-ask{width:28mm}
+.grid th.n{text-align:right;padding-right:2mm}
+.card-foot{margin-top:3mm;font-size:8.8pt;line-height:1.35;color:#333;display:flex;justify-content:space-between;gap:6mm}
+
+@media print{
+  @page{margin:12mm}
+  html,body{background:#fff !important}
+  .wrap > *:not(#cards){display:none !important}
+  .wrap{padding:0;max-width:none}
+  #cards{margin:0;display:block;overflow:visible;padding:0}
+  .card{box-shadow:none;border-radius:0;padding:0;max-width:182mm;break-after:page;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card:last-child{break-after:auto;page-break-after:auto}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>KinCheck</h1>
+<p class="lede">A paper card that proves who's on the phone. A cloned voice can sound exactly like your grandson, but it can't read his card. No app, no account, no internet, and no phone needed by the person who's most likely to be targeted. <a href="index.html">Read the protocol</a>.</p>
+
+<ol class="steps" aria-label="How it works">
+  <li><b>Print a card for every pair of people.</b> Grandma gets a card for calls with Alex and another for calls with Sam. Each pair has its own 30 lines, and they exist only on paper.</li>
+  <li><b>Asked for money in a hurry? Ask for a check.</b> Take out the card with the caller's name: <span class="say">"Card check: line 1, maple."</span> They have to read back that line's two words.</li>
+  <li><b>Cross the line off.</b> Both of you do. A scammer who overheard it gets nothing, because that line never works again.</li>
+</ol>
+
+<h2>Make your family's cards</h2>
+<div class="panel">
+  <div class="row">
+    <div>
+      <label for="names">Who gets a card?</label>
+      <textarea id="names" spellcheck="false">Grandma
+Alex
+Sam</textarea>
+      <p class="hint">One name per line, up to 8. Each pair of people gets its own card, one page per person: 3 people need 6 pages, 4 people need 12.</p>
+    </div>
+    <div>
+      <label for="family">Family name (optional)</label>
+      <input id="family" type="text" maxlength="40" placeholder="The Rivera family" autocomplete="off">
+      <p class="hint">Printed at the top so cards are easy to recognise.</p>
+      <div class="note"><b>Nothing leaves this page.</b> It makes no network requests (the browser blocks them), and it saves nothing, not even on this computer. Once you close the tab, the printed cards are the only copies.</div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="gen">Make a new card set</button>
+    <button id="print" disabled>Print cards</button>
+  </div>
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+</div>
+
+<div id="cards" aria-label="Card preview"></div>
+
+<h2>What it stops, and what it doesn't</h2>
+<div class="panel">
+<table class="threats">
+  <tr><th>A cloned voice calls Grandma asking for bail money</th><td><span class="tag y">Stops it</span> They can't read back line 1. The chance of guessing two words from 256 is about 1 in 65,000.</td></tr>
+  <tr><th>A scammer overheard a past check</th><td><span class="tag y">Stops it</span> Every line is used once and then crossed off. An overheard line is already dead.</td></tr>
+  <tr><th>A scammer calls Alex pretending to be Grandma: "read me line 4 so I know it's you"</th><td><span class="tag y">Stops it</span> The person asking always says the <i>ask word</i> first. Without it, you don't answer.</td></tr>
+  <tr><th>A scammer picks up an ask word in a failed check, then uses it on another relative</th><td><span class="tag y">Stops it</span> Every pair of people has its own card. An ask word Grandma said to a fake "Alex" works only on the Grandma ↔ Alex card, on a line she has already crossed off. It opens nothing on Sam's cards. This is also why a correct ask word alone doesn't prove who's calling: if they then ask <i>you</i> for something, run your own check.</td></tr>
+  <tr><th>Someone guesses which line you'll pick</th><td><span class="tag y">Stops it</span> There is nothing to guess. You always use your top line that isn't crossed off, and each line's words are random.</td></tr>
+  <tr><th>A scammer relays a check live between two real family members, at the same moment</th><td><span class="tag n">Can't stop it</span> This is rare and hard to pull off. For anything big, hang up and call back on the number you already have saved.</td></tr>
+  <tr><th>The card is lost, stolen or photographed</th><td><span class="tag n">Can't stop it</span> Make new cards for every pair that card covered, and shred the old ones. Keep the card in a drawer, not on display. A photo on a cloud-backed phone is a copy too.</td></tr>
+</table>
+<p class="hint" style="margin-top:12px">How it works underneath: the same idea as the paper authentication tables militaries have used on voice radio for decades, and the one-time code lists banks used to post to customers, turned around for families. Words come from your browser's cryptographic random generator (<code>crypto.getRandomValues</code>). A 256-word list means each word is one random byte, and the words were picked to be hard to mishear on a bad line. Rhymes like rocket / pocket were removed, and a script checks shared word endings every time the page is built.</p>
+</div>
+
+<h2>Before you rely on it: rehearse once</h2>
+<div class="panel">
+  <p style="margin-top:0">Hand out the cards, then do a five-minute pretend call with whoever is most likely to be targeted. One person plays the "grandkid in trouble" and is in a hurry. The other practises saying <span class="say">"Card check: line 1, …"</span> and hanging up when the answer is wrong. People under stress fall back on habits they've practised, not on paper. Cross off line 1 afterward, as you would on a real call.</p>
+</div>
+
+</div>
+
+<script>
+"use strict";
+const WORDS = __WORDS__;
+const LINES = 30;
+if (WORDS.length !== 256 || new Set(WORDS).size !== 256) throw new Error("word list must be 256 unique words");
+
+// Uniform random integer in [0, n) using rejection sampling over 32-bit values.
+function randInt(n){
+  const buf = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / n) * n;
+  for(;;){ crypto.getRandomValues(buf); if (buf[0] < limit) return buf[0] % n; }
+}
+// Unbiased Fisher–Yates shuffle; drawing without replacement keeps every word on a card distinct.
+function shuffled(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--){ const j = randInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function makeSetId(){
+  const A = "ACDEFGHJKMNPQRTUVWXY34679"; // no look-alikes (0/O, 1/I/L, 2/Z, 5/S, 8/B)
+  let s = ""; for (let i = 0; i < 6; i++) s += A[randInt(A.length)];
+  return s.slice(0,3) + "-" + s.slice(3);
+}
+function makeLines(){
+  const w = shuffled(WORDS);
+  const lines = [];
+  for (let i = 0; i < LINES; i++) lines.push({ ask: w[3*i], ans: [w[3*i+1], w[3*i+2]] });
+  return lines;
+}
+function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+function el(tag, attrs, ...kids){
+  const e = document.createElement(tag);
+  if (attrs) for (const k in attrs){ if (k === "class") e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+  for (const k of kids){ if (k == null) continue; e.append(k.nodeType ? k : document.createTextNode(String(k))); }
+  return e;
+}
+function half(lines, from, to){
+  const t = el("table", null, el("colgroup", null,
+    el("col", {class:"c-n"}), el("col", {class:"c-ask"}), el("col", {class:"c-ans"})));
+  t.append(el("thead", null, el("tr", null,
+    el("th", {class:"n"}, "#"), el("th", null, "Ask word"), el("th", null, "Answer"))));
+  const tb = el("tbody");
+  for (let i = from; i < to; i++){
+    const L = lines[i];
+    tb.append(el("tr", null,
+      el("td", {class:"n"}, i + 1),
+      el("td", {class:"ask"}, cap(L.ask)),
+      el("td", null, cap(L.ans[0]) + " · " + cap(L.ans[1]))));
+  }
+  t.append(tb);
+  return t;
+}
+function card(holder, partner, family, setId, made, lines){
+  const head = el("div", {class:"card-head"},
+    el("div", {class:"card-title"}, holder + " ↔ " + partner,
+      el("small", null, "KinCheck card" + (family ? " · " + family : "") + " · keep it private, like a house key")),
+    el("div", {class:"card-meta"}, el("b", null, holder + "'s copy"), el("br"), "Only for calls with " + partner, el("br"), "Set " + setId + " · made " + made));
+  const how = el("div", {class:"how"},
+    el("div", null,
+      el("b", null, partner + " wants money, a code, or urgent help?"),
+      el("ol", null,
+        el("li", null, "Say: ", el("span", {class:"q"}, "“Card check: line __, [ask word].”"), " Use your top line that isn't crossed off."),
+        el("li", null, "They must read back that line's ", el("b", null, "two answer words"), "."),
+        el("li", null, el("b", null, "Both of you cross that line off"), ", even if the check failed. If they say that line is already crossed off on their card, cross it off too and use your next one."))),
+    el("div", {class:"stop"},
+      el("b", null, "Wrong answer? Stalling? “Lost my card”?"),
+      "Hang up. Call them back on the number you already have saved.",
+      el("div", {style:"margin-top:1.5mm"}, el("b", {style:"display:inline;font-size:inherit"}, "They ask YOU for a check?"), " Answer only if they said the right ask word for a line you haven't crossed off. If they then ask you for something, run your own check.")));
+  const grid = el("div", {class:"grid"}, half(lines, 0, LINES/2), half(lines, LINES/2, LINES));
+  const foot = el("div", {class:"card-foot"},
+    el("span", null, "Only " + holder + " and " + partner + " have these lines. If either card is lost, make a new pair of cards."),
+    el("span", null, "Never read this card to anyone who hasn't said the ask word."));
+  return el("section", {class:"card", "aria-label":holder + "'s card for calls with " + partner}, head, how, grid, foot);
+}
+
+const $ = id => document.getElementById(id);
+const MAX_PEOPLE = 8;
+function generate(){
+  const raw = $("names").value.split("\n").map(s => s.trim().replace(/\s+/g, " ").slice(0, 20)).filter(Boolean);
+  const names = [...new Set(raw)].slice(0, MAX_PEOPLE);
+  if (names.length < 2){ $("status").textContent = "Add at least two different names. A card is always shared between two people."; return; }
+  const family = $("family").value.trim();
+  const setId = makeSetId();
+  const made = new Date().toLocaleDateString(undefined, {year:"numeric", month:"short", day:"numeric"});
+  // Independent lines for every pair, so no line is ever on more than two cards.
+  const pairLines = new Map();
+  for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) pairLines.set(i + "|" + j, makeLines());
+  const box = $("cards"); box.replaceChildren();
+  let pages = 0;
+  names.forEach((h, i) => names.forEach((p, j) => {
+    if (i === j) return;
+    box.append(card(h, p, family, setId, made, pairLines.get(Math.min(i, j) + "|" + Math.max(i, j))));
+    pages++;
+  }));
+  const pairs = pages / 2;
+  $("print").disabled = false;
+  $("gen").textContent = "Make a different set";
+  const notes = [];
+  if (raw.length > names.length) notes.push(" (duplicates and names past " + MAX_PEOPLE + " were left out)");
+  $("status").textContent = "Set " + setId + " ready: " + pairs + " pair" + (pairs > 1 ? "s" : "") + ", " + pages + " pages, printed grouped by person" + notes.join("") + ". Cards from older sets won't match.";
+  document.title = "KinCheck · set " + setId;
+}
+$("gen").addEventListener("click", generate);
+$("print").addEventListener("click", () => window.print());
+</script>
+</body>
+</html>
